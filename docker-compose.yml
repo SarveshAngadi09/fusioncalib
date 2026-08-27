@@ -1,0 +1,53 @@
+version: "3.9"
+
+services:
+  ros2-node:
+    build:
+      context: ./calibration-core
+      dockerfile: Dockerfile
+    image: fusioncalib/ros2-node:latest
+    environment:
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
+      - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
+      - RGB_TOPIC=${RGB_TOPIC:-/camera/color/image_raw}
+      - DEPTH_TOPIC=${DEPTH_TOPIC:-/camera/depth/image_rect_raw}
+    network_mode: host
+    volumes:
+      - ./sessions:/sessions
+    command: >
+      ros2 run polycalib_core calibration_node
+      --ros-args
+      -p rgb_topic:=${RGB_TOPIC:-/camera/color/image_raw}
+      -p depth_topic:=${DEPTH_TOPIC:-/camera/depth/image_rect_raw}
+    restart: unless-stopped
+
+  api-server:
+    build:
+      context: ./calibration-api
+      dockerfile: Dockerfile
+    image: fusioncalib/api-server:latest
+    ports:
+      - "${API_PORT:-8000}:8000"
+    environment:
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
+      - SESSION_DIR=/sessions
+    volumes:
+      - ./sessions:/sessions
+    depends_on:
+      - ros2-node
+    restart: unless-stopped
+
+  webapp:
+    build:
+      context: ./calibration-webapp
+      dockerfile: Dockerfile
+    image: fusioncalib/webapp:latest
+    ports:
+      - "${WEBAPP_PORT:-3000}:3000"
+    environment:
+      - VITE_API_BASE_URL=http://localhost:${API_PORT:-8000}
+    depends_on:
+      - api-server
+    restart: unless-stopped
+
+volumes: {}

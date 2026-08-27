@@ -1,0 +1,38 @@
+# Environment
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# ROS2
+install/
+log/
+*.log
+
+# Node / webapp
+node_modules/
+calibration-webapp/dist/
+calibration-webapp/.env.local
+
+# Sessions and calibration output
+sessions/
+*.yaml.out
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local IDE settings
+.claude/

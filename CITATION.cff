@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+message: "If you use FusionCalib in academic work, please cite it as below."
+type: software
+title: "FusionCalib: Multimodal Sensor Calibration for Robotics Rigs"
+version: 0.1.0
+date-released: "2026-08-27"
+authors:
+  - family-names: Angadi
+    given-names: Sarvesh
+    email: sarvesh.angadi1997@gmail.com
+repository-code: "https://github.com/sarveshangadi/fusioncalib"
+license: AGPL-3.0-or-later
+abstract: >
+  FusionCalib is a ROS2-native multimodal sensor calibration platform for
+  robotics rigs. It solves extrinsic and intrinsic calibration across RGB
+  cameras, depth sensors, thermal cameras, and LiDAR in a unified workflow,
+  using a ChArUco board target and outputting calibration files compatible
+  with ROS2 tf2, RTAB-Map, and ORB-SLAM3.
+keywords:
+  - calibration
+  - robotics
+  - ROS2
+  - sensor fusion
+  - extrinsic calibration
+  - intrinsic calibration
+  - depth camera
+  - LiDAR
