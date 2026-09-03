@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FusionCalib</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0f1117; color: #e2e8f0;
+      min-height: 100vh; display: flex; flex-direction: column;
+      align-items: center; padding: 48px 24px;
+    }
+    header { text-align: center; margin-bottom: 40px; }
+    header h1 { font-size: 2rem; font-weight: 700; letter-spacing: -0.5px; }
+    header p { color: #94a3b8; margin-top: 6px; font-size: 0.95rem; }
+
+    .card {
+      background: #1e2130; border: 1px solid #2d3148;
+      border-radius: 12px; padding: 28px 32px;
+      width: 100%; max-width: 540px; margin-bottom: 20px;
+    }
+    .card h2 {
+      font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 1px; color: #64748b; margin-bottom: 16px;
+    }
+
+    label { display: block; font-size: 0.8rem; color: #94a3b8; margin-bottom: 6px; margin-top: 12px; }
+    label:first-of-type { margin-top: 0; }
+
+    select, input[type=number] {
+      width: 100%; padding: 10px 12px; background: #0f1117;
+      border: 1px solid #2d3148; border-radius: 8px; color: #e2e8f0;
+      font-size: 0.9rem; appearance: none;
+    }
+    select:focus, input:focus { outline: none; border-color: #3b82f6; }
+
+    .row { display: flex; gap: 12px; }
+    .row > * { flex: 1; }
+
+    .state-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 14px; border-radius: 999px;
+      font-size: 0.85rem; font-weight: 600; margin-bottom: 12px;
+    }
+    .state-unconfigured { background:#1e293b; color:#64748b; }
+    .state-idle           { background:#1e293b; color:#94a3b8; }
+    .state-collecting     { background:#0f2f1a; color:#4ade80; }
+    .state-ready_to_solve { background:#1e2f4f; color:#60a5fa; }
+    .state-solving        { background:#2d1e00; color:#fbbf24; }
+    .state-done           { background:#0f2f1a; color:#34d399; }
+    .state-error          { background:#2f1e1e; color:#f87171; }
+
+    .dot {
+      width:8px; height:8px; border-radius:50%; background:#4ade80;
+      animation: pulse 1.4s infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    .frame-count { font-size: 2.2rem; font-weight: 700; color: #60a5fa; }
+    .frame-label { font-size: 0.8rem; color: #64748b; margin-top: 2px; }
+
+    .actions { display: flex; gap: 12px; margin-top: 4px; }
+    button {
+      flex: 1; padding: 12px; border: none; border-radius: 8px;
+      font-size: 0.9rem; font-weight: 600; cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    button:active { transform: scale(0.97); }
+    button:disabled { opacity: 0.35; cursor: not-allowed; }
+    .btn-configure { background: #7c3aed; color: #fff; }
+    .btn-start     { background: #2563eb; color: #fff; }
+    .btn-solve     { background: #059669; color: #fff; }
+
+    .result-box {
+      background: #0f1117; border: 1px solid #2d3148;
+      border-radius: 8px; padding: 14px;
+      font-size: 0.75rem; font-family: "SF Mono","Fira Code",monospace;
+      color: #94a3b8; max-height: 220px; overflow-y: auto;
+      white-space: pre-wrap;
+    }
+
+    .toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: #1e2130; border: 1px solid #2d3148;
+      border-radius: 8px; padding: 12px 20px; font-size: 0.85rem;
+      opacity: 0; transition: opacity 0.3s; pointer-events: none;
+    }
+    .toast.show { opacity: 1; }
+    .toast.error { border-color: #f87171; color: #f87171; }
+    .toast.ok    { border-color: #34d399; color: #34d399; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>FusionCalib</h1>
+  <p>Multimodal sensor calibration platform</p>
+</header>
+
+<!-- Setup -->
+<div class="card">
+  <h2>Setup</h2>
+
+  <label>Calibration mode</label>
+  <select id="mode">
+    <option value="single">Single camera (intrinsics only)</option>
+    <option value="stereo">Stereo cameras (intrinsics + extrinsics)</option>
+  </select>
+
+  <label>Left camera</label>
+  <select id="left-cam"><option value="0">Loading…</option></select>
+
+  <div id="right-cam-row" style="display:none">
+    <label>Right camera</label>
+    <select id="right-cam"><option value="1">Loading…</option></select>
+  </div>
+
+  <label>Minimum frames</label>
+  <input type="number" id="min-frames" value="20" min="5" max="100" />
+
+  <div class="actions" style="margin-top:16px">
+    <button class="btn-configure" onclick="doConfigure()">Apply configuration</button>
+  </div>
+</div>
+
+<!-- Status -->
+<div class="card">
+  <h2>Session status</h2>
+  <div><span id="state-badge" class="state-badge state-unconfigured">unconfigured</span></div>
+  <div style="font-size:0.8rem;color:#64748b" id="session-id">session: —</div>
+</div>
+
+<!-- Frames -->
+<div class="card">
+  <h2>Frames collected</h2>
+  <div class="frame-count" id="frame-count">—</div>
+  <div class="frame-label">accepted frame pairs</div>
+</div>
+
+<!-- Controls -->
+<div class="card">
+  <h2>Controls</h2>
+  <div class="actions">
+    <button class="btn-start" id="btn-start" onclick="doStart()" disabled>Start live capture</button>
+    <button class="btn-solve" id="btn-solve" onclick="doSolve()" disabled>Solve</button>
+  </div>
+</div>
+
+<!-- Upload -->
+<div class="card" id="upload-card" style="display:none">
+  <h2>Upload images</h2>
+  <p style="font-size:0.82rem;color:#94a3b8;margin-bottom:16px">
+    Upload previously captured images instead of (or in addition to) live capture.
+    Images must show the ChArUco board clearly.
+  </p>
+
+  <div id="upload-single" style="display:block">
+    <label>Select image(s)</label>
+    <input type="file" id="file-single" accept="image/*" multiple
+           style="color:#94a3b8;margin-bottom:12px" />
+    <button class="btn-start" style="flex:none;width:100%" onclick="uploadSingle()">Upload images</button>
+  </div>
+
+  <div id="upload-stereo" style="display:none">
+    <div class="row">
+      <div>
+        <label>Left images</label>
+        <input type="file" id="file-left" accept="image/*" multiple style="color:#94a3b8" />
+      </div>
+      <div>
+        <label>Right images</label>
+        <input type="file" id="file-right" accept="image/*" multiple style="color:#94a3b8" />
+      </div>
+    </div>
+    <button class="btn-start" style="width:100%;margin-top:12px" onclick="uploadPairs()">Upload pairs</button>
+  </div>
+
+  <div id="upload-log" style="margin-top:14px;font-size:0.78rem;color:#64748b;max-height:120px;overflow-y:auto"></div>
+</div>
+
+<!-- Result -->
+<div class="card" id="result-card" style="display:none">
+  <h2>Calibration result</h2>
+  <div class="result-box" id="result-box"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const POLL_MS = 1200;
+  let configured = false;
+
+  // ── Camera enumeration ──────────────────────────────────────────
+  async function loadCameras() {
+    try {
+      const r = await fetch("/cameras");
+      const cams = await r.json();
+      const leftSel = document.getElementById("left-cam");
+      const rightSel = document.getElementById("right-cam");
+      [leftSel, rightSel].forEach(sel => {
+        sel.innerHTML = cams.length
+          ? cams.map(c => `<option value="${c.index}">${c.label}</option>`).join("")
+          : '<option value="0">No cameras found</option>';
+      });
+      if (cams.length > 1) rightSel.value = "1";
+    } catch (_) {}
+  }
+
+  document.getElementById("mode").addEventListener("change", e => {
+    const stereo = e.target.value === "stereo";
+    document.getElementById("right-cam-row").style.display = stereo ? "block" : "none";
+    document.getElementById("upload-single").style.display = stereo ? "none" : "block";
+    document.getElementById("upload-stereo").style.display = stereo ? "block" : "none";
+  });
+
+  // ── Configuration ───────────────────────────────────────────────
+  async function doConfigure() {
+    const body = {
+      mode: document.getElementById("mode").value,
+      left_index: parseInt(document.getElementById("left-cam").value),
+      right_index: parseInt(document.getElementById("right-cam").value),
+      min_frames: parseInt(document.getElementById("min-frames").value),
+    };
+    const r = await fetch("/configure", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    showToast(r.ok ? d.message : (d.detail ?? "Error"), r.ok ? "ok" : "error");
+    if (r.ok) {
+      configured = true;
+      document.getElementById("btn-start").disabled = false;
+    }
+    poll();
+  }
+
+  // ── Calibration controls ────────────────────────────────────────
+  async function doStart() {
+    const r = await fetch("/start", { method: "POST" });
+    const d = await r.json();
+    showToast(r.ok ? d.message : (d.detail ?? "Error"), r.ok ? "ok" : "error");
+    poll();
+  }
+
+  async function doSolve() {
+    const r = await fetch("/solve", { method: "POST" });
+    const d = await r.json();
+    showToast(r.ok ? d.message : (d.detail ?? "Error"), r.ok ? "ok" : "error");
+    poll();
+  }
+
+  // ── Status polling ──────────────────────────────────────────────
+  async function poll() {
+    try {
+      const r = await fetch("/status");
+      if (!r.ok) return;
+      applyStatus(await r.json());
+    } catch (_) {}
+  }
+
+  function applyStatus(d) {
+    const state = d.state ?? "unconfigured";
+    const badge = document.getElementById("state-badge");
+    badge.innerHTML = "";
+
+    if (state === "collecting") {
+      const dot = document.createElement("span");
+      dot.className = "dot";
+      badge.appendChild(dot);
+    }
+    badge.appendChild(document.createTextNode(state.replace(/_/g, " ")));
+    badge.className = "state-badge state-" + state;
+
+    document.getElementById("session-id").textContent =
+      "session: " + (d.session_id ?? "—");
+    document.getElementById("frame-count").textContent =
+      d.frame_count ?? "—";
+
+    document.getElementById("btn-start").disabled = state !== "idle";
+    document.getElementById("btn-solve").disabled = state !== "ready_to_solve";
+
+    // Show upload card once configured (idle, collecting, ready_to_solve)
+    const showUpload = ["idle", "collecting", "ready_to_solve"].includes(state);
+    document.getElementById("upload-card").style.display = showUpload ? "block" : "none";
+
+    if (state === "done" && d.result) {
+      document.getElementById("result-card").style.display = "block";
+      document.getElementById("result-box").textContent =
+        JSON.stringify(d.result, null, 2);
+    }
+  }
+
+  // ── Image upload ────────────────────────────────────────────────
+  async function uploadSingle() {
+    const files = document.getElementById("file-single").files;
+    if (!files.length) return showToast("No files selected.", "error");
+    const log = document.getElementById("upload-log");
+    for (const file of files) {
+      const fd = new FormData();
+      fd.append("file", file);
+      const r = await fetch("/upload", { method: "POST", body: fd });
+      const d = await r.json();
+      const line = document.createElement("div");
+      line.style.color = r.ok && d.success ? "#4ade80" : "#f87171";
+      line.textContent = `${file.name}: ${d.message}`;
+      log.appendChild(line);
+      log.scrollTop = log.scrollHeight;
+    }
+    poll();
+  }
+
+  async function uploadPairs() {
+    const lefts = document.getElementById("file-left").files;
+    const rights = document.getElementById("file-right").files;
+    if (!lefts.length || !rights.length) return showToast("Select both left and right images.", "error");
+    if (lefts.length !== rights.length) return showToast("Left and right must have equal number of images.", "error");
+    const log = document.getElementById("upload-log");
+    for (let i = 0; i < lefts.length; i++) {
+      const fd = new FormData();
+      fd.append("left", lefts[i]);
+      fd.append("right", rights[i]);
+      const r = await fetch("/upload/pair", { method: "POST", body: fd });
+      const d = await r.json();
+      const line = document.createElement("div");
+      line.style.color = r.ok && d.success ? "#4ade80" : "#f87171";
+      line.textContent = `Pair ${i + 1}: ${d.message}`;
+      log.appendChild(line);
+      log.scrollTop = log.scrollHeight;
+    }
+    poll();
+  }
+
+  function showToast(msg, type) {
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.className = "toast show " + type;
+    setTimeout(() => t.className = "toast", 3000);
+  }
+
+  loadCameras();
+  setInterval(poll, POLL_MS);
+  poll();
+</script>
+</body>
+</html>

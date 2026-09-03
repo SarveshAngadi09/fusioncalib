@@ -9,6 +9,15 @@ dist/
 build/
 .venv/
 venv/
+*.spec
+
+# PyInstaller output
+calibration-api/dist/
+calibration-api/build/
+
+# Node / Electron
+electron/node_modules/
+electron/dist/
 
 # ROS2
 install/

@@ -1,0 +1,51 @@
+{
+  "name": "fusioncalib",
+  "version": "0.1.0",
+  "description": "Multimodal sensor calibration platform",
+  "author": "Sarvesh Angadi <sarvesh.angadi1997@gmail.com>",
+  "license": "AGPL-3.0-or-later",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win"
+  },
+  "dependencies": {
+    "electron": "^30.0.0"
+  },
+  "devDependencies": {
+    "electron-builder": "^24.0.0"
+  },
+  "build": {
+    "appId": "io.fusioncalib.app",
+    "productName": "FusionCalib",
+    "directories": {
+      "output": "../dist"
+    },
+    "extraResources": [
+      {
+        "from": "../calibration-api/dist/server",
+        "to": "server",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "../calibration-api/static",
+        "to": "static",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "../calibration-core/polycalib_core",
+        "to": "polycalib_core",
+        "filter": ["**/*"]
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    }
+  }
+}
